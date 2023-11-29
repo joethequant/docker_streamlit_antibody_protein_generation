@@ -101,10 +101,10 @@ RUN mkdir app
 WORKDIR $HOME/app
 
 COPY Home.py $HOME/app
-COPY sidebar.py $HOME/app
 COPY logo.png $HOME/app
 
 COPY pages $HOME/app/pages
+COPY helpers $HOME/app/helpers
 
 
 # Make port 8501 available to the world outside this container

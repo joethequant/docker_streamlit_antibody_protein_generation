@@ -4,7 +4,7 @@
 import time
 import streamlit as st
 from PIL import Image
-import sidebar
+import helpers.sidebar as sidebar
 import requests
 import os
 from dotenv import load_dotenv
@@ -19,12 +19,12 @@ runpod_secret = os.getenv('runpod_secret')
 logo = Image.open('logo.png')
 
 st.set_page_config(
-    page_title='Antigen.ai: Antibody Protein Generation', 
+    page_title='AntibodyGPT: Antibody Protein Generation', 
     page_icon=logo)
 
 sidebar.get_sidebar()
     
-st.write("# Welcome to Antigen.ai")
+st.write("# Welcome to AntibodyGPT")
 
 
 st.markdown(
