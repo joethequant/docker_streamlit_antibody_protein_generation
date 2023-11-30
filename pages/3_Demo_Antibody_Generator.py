@@ -12,11 +12,13 @@
 
 import time
 import streamlit as st
+import streamlit.components.v1 as components
 from PIL import Image
 import helpers.sidebar as sidebar
 from helpers.seq import ab_number, full_seq_identity, cdr3_seq_identity
 import requests
 import os
+import requests
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -24,12 +26,11 @@ run_runpod_rest_api = True
 runpod_id = os.getenv('runpod_id')
 runpod_secret = os.getenv('runpod_secret')
 
-# st.sidebar.markdown("## Main Menu")
 
 logo = Image.open('logo.png')
 
 st.set_page_config(
-    page_title='Antigen.ai: Demo Antibody Protein Generation', 
+    page_title='AntibodyGPT: Demo Antibody Protein Generation', 
     page_icon=logo
     )
 
@@ -112,13 +113,18 @@ with st.form("generate_sequences_form"):
 
     submit = st.form_submit_button('Generate Sequences!')
 
-# if st.button('Generate Sequences!'):
-if submit:
 
+if submit:
     if target_sequence_input == "":
         st.error('Please enter a target protein sequence.')
         st.stop()
+    else:
+        st.session_state.submitted = True
 
+else:
+    st.session_state.submitted = False
+
+if 'submitted' in st.session_state:
     
     st.write("Model Requested: ", model_selection)
 
@@ -210,6 +216,47 @@ if submit:
         df_result_H_dict = df_result_H.to_dict('records')
         df_result_KL_dict = df_result_KL.to_dict('records')
 
+        heavy_and_light_sequences = df_result_H.add_prefix('H_').merge(df_result_KL.add_prefix('KL_'), left_index=True, right_index=True)
+
+        heavy_chain_strings = []
+        light_chain_strings = []
+        folded_sequences = []
+
+        for i in range(len(df_result_H)):
+            heavy_chain = []
+            for key in df_result_H_dict[i].keys():
+                try:
+                    int_key = int(key)
+                    if df_result_H_dict[i][key] != '-':
+                        heavy_chain.append(df_result_H_dict[i][key])
+                except ValueError:
+                    # This means the key is not a string representation of a number
+                    continue
+
+            heavy_chain = ''.join(heavy_chain)
+            heavy_chain_strings.append(heavy_chain)
+
+            light_chain = []
+            for key in df_result_KL_dict[i].keys():
+                try:
+                    int_key = int(key)
+                    if df_result_KL_dict[i][key] != '-':
+                        light_chain.append(df_result_KL_dict[i][key])
+                except ValueError:
+                    # This means the key is not a string representation of a number
+                    continue
+
+
+            light_chain = ''.join(light_chain)
+            light_chain_strings.append(light_chain)
+
+
+
+            folded_sequence = f"{heavy_chain}GGGGGSGGGGSGGGGS{light_chain}"
+
+            folded_sequences.append(folded_sequence)
+
+
         st.write('Processing Done')
 
     if status == 'COMPLETED':
@@ -217,95 +264,134 @@ if submit:
         executionTime = response_json['executionTime']
         Estimated_Cost = executionTime / 60 * 0.00048
 
-        st.header('Generation Job Summary', divider='green')
+        st.header('Job Summary', divider='green')
 
 
         col1, col2 = st.columns([.5,.5], gap="small")
         
-        with col1:
-            st.markdown(f'''
-                **GPU:** 'A6000'
-            
-                **Estimated Cost:** ${round(Estimated_Cost, 2)} USD        
+        st.markdown(f'''
+            **GPU:** 'A6000'
+        
+            **Delay Time:** {round(delayTime / 1000, 1)} seconds
 
-                **Cost Per Sequence Requested:** ${round(Estimated_Cost / number_of_sequences, 2)} USD
+            **Execution Time:** {round(executionTime / 1000, 1)} seconds
 
-                **Cost Per Valid Sequence Returned:** ${round(Estimated_Cost / len(df_result_H), 2)} USD
+            **Estimated Cost:** ${round(Estimated_Cost, 2)} USD    
 
-                **Delay Time:** {round(delayTime / 1000, 1)} seconds
+            **Cost Per Sequence Requested:** ${round(Estimated_Cost / number_of_sequences, 2)} USD
 
-                **Execution Time:** {round(executionTime / 1000, 1)} seconds
+            **Cost Per Valid Sequence Returned:** ${round(Estimated_Cost / len(df_result_H), 2)} USD
             ''')
 
-        with col2: 
-            st.markdown(f'''   
 
+        st.header('Model Results', divider='green')
+
+
+        csv = heavy_and_light_sequences.to_csv(index=False)
+
+        # Step 2: Use st.download_button to create a download button
+        st.download_button(
+            label="Download generated sequences",
+            data=csv,
+            file_name='data.csv',
+            mime='text/csv',
+        )
+
+
+        if len(df_result_H) > 1:
+
+            
+            st.markdown(f'''
                 **Sequences Requested:** {number_of_sequences}       
 
                 **Valid Sequences Returned:** {len(df_result_H)}
 
                 **Percent Success Rate:** {round(len(df_result_H) / number_of_sequences * 100, 0)}%
 
-                **Average Sequence Identity HL:** {full_seq_identity(df_result_H, df_result_KL)}
+                **Average Sequence Identity HL:** {round(full_seq_identity(df_result_H, df_result_KL), 1)}
 
-                **Average Sequence Identity HCDR3:** {cdr3_seq_identity(df_result_KL)}
-
+                **Average Sequence Identity HCDR3:** {round(cdr3_seq_identity(df_result_KL), 1)}
 
             ''')
+
+        else:
+            st.markdown(f'''
+                **Sequences Requested:** {number_of_sequences}       
+
+                **Valid Sequences Returned:** {len(df_result_H)}
+
+                **Percent Success Rate:** {round(len(df_result_H) / number_of_sequences * 100, 0)}%
+
+                **Average Sequence Identity HL:** {0}
+
+                **Average Sequence Identity HCDR3:** {0}
+
+            ''')            
+
 
         st.header('Antibody Protein Sequences Generated', divider='green')
 
         # Create tabs dynamically
         tabs = st.tabs([f'Sequence {i+1}' for i in range(len(df_result_H))])
-
+        # tabs = st.tabs([f'Sequence {i+1}' for i in range(1)])
         for i, tab in enumerate(tabs):
             with tab:
 
-                heavy_chain = []
-                for key in df_result_H_dict[i].keys():
-                    try:
-                        int_key = int(key)
-                        heavy_chain.append(df_result_H_dict[i][key])
-                    except ValueError:
-                        # This means the key is not a string representation of a number
-                        continue
+                # heavy_chain = []
+                # for key in df_result_H_dict[i].keys():
+                #     try:
+                #         int_key = int(key)
+                #         if df_result_H_dict[i][key] != '-':
+                #             heavy_chain.append(df_result_H_dict[i][key])
+                #     except ValueError:
+                #         # This means the key is not a string representation of a number
+                #         continue
 
-                light_chain = []
-                for key in df_result_KL_dict[i].keys():
-                    try:
-                        int_key = int(key)
-                        light_chain.append(df_result_KL_dict[i][key])
-                    except ValueError:
-                        # This means the key is not a string representation of a number
-                        continue
-
-                st.markdown(f''' 
-
-                        #### Heavy Chain:
-                        {''.join(heavy_chain)}
-
-                        #### Light Chain:
-                        {''.join(light_chain)} 
-
-
-                        #### ANARCI Results
-
-
-                            ''')
-                
+                # light_chain = []
+                # for key in df_result_KL_dict[i].keys():
+                #     try:
+                #         int_key = int(key)
+                #         if df_result_KL_dict[i][key] != '-':
+                #             light_chain.append(df_result_KL_dict[i][key])
+                #     except ValueError:
+                #         # This means the key is not a string representation of a number
+                #         continue
 
                 col1, col2 = st.columns([.5,.5], gap="small")
 
                 with col1:
                     st.markdown(f'''
                                 
-                                ##### Heavy Chain
+                                #### Heavy Chain
 
+                                {heavy_chain_strings[i]}
+
+                                '''
+                                )
+
+                with col2:
+                    st.markdown(f'''
+                                    
+                                    #### Light Chain
+                                
+                                    {light_chain_strings[i]} 
+
+                                    '''
+                                    )
+                    
+                col1, col2 = st.columns([.5,.5], gap="small")
+                    
+                with col1:
+                    st.markdown(f'''
+                                
+
+                                ##### ANARCI Results
+                                
                                 **Species:** {df_result_H_dict[i]['hmm_species']}
 
                                 **Chain Type:** {df_result_H_dict[i]['chain_type']}
 
-                                **E-Value:** {df_result_H_dict[i]['e-value']}
+                                **E-Value:** {round(df_result_H_dict[i]['e-value'], 6)}
 
                                 **Score:** {df_result_H_dict[i]['score']}
                                 '''
@@ -314,17 +400,66 @@ if submit:
                 with col2:
                     st.markdown(f'''
                                     
-                                    ##### Light Chain
+
+                                    ##### ANARCI Results
     
                                     **Species:** {df_result_KL_dict[i]['hmm_species']}
     
                                     **Chain Type:** {df_result_KL_dict[i]['chain_type']}
     
-                                    **E-Value:** {df_result_KL_dict[i]['e-value']}
+                                    **E-Value:** {round(df_result_KL_dict[i]['e-value'], 6)}
     
                                     **Score:** {df_result_KL_dict[i]['score']}
                                     '''
                                     )
+                    
+                payload = f"{folded_sequences[i]}"
+
+
+                st.markdown(f'''
+                            #### Antibody Sequence
+                            {folded_sequences[i]}
+                            ''')
+
+                with st.spinner('Folding Sequence'):
+
+                    response = requests.post("https://api.esmatlas.com/foldSequence/v1/pdb/", data=payload, verify=False)
+
+                # Check the status of the request
+                if response.status_code == 200:
+                    pdb_data = response.text
+
+                    # Step 1: Convert the PDB data to a binary format
+                    pdb_data_binary = pdb_data.encode()
+
+                    # Step 2: Use the st.download_button function to create a download button
+                    st.download_button(
+                        label="Download PDB file",
+                        data=pdb_data_binary,
+                        file_name=f'sequence_{i+1}.pdb',
+                        mime='application/octet-stream'
+                    )
+                    
+                    html_template = f"""
+                    <div id="mol-container" style="width: 100%; height: 600px;"></div>
+                    <script src="https://3Dmol.org/build/3Dmol-min.js"></script>
+                    <script>
+                    let viewer = new $3Dmol.createViewer('mol-container');
+                    viewer.addModel(`{pdb_data}`, "pdb");
+                    viewer.setStyle({{'cartoon': {{color:'spectrum'}}}});  // Note the extra quotes and braces
+                    viewer.zoomTo();
+                    viewer.render();
+                    </script>
+                    """
+
+                    components.html(html_template, height=600)
+
+                else:
+                    # If the request was not successful, print an error message
+                    st.write(f"Error: Could not fold sequence. {response.text}")
+
+                
+                
 
 
 
