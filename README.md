@@ -55,14 +55,6 @@ These instructions will get you a copy of the project up and running on your loc
 - Public Image: [https://hub.docker.com/repository/docker/robertsj32/antibody_generation_runpod/general](https://hub.docker.com/repository/docker/robertsj32/antibody_generation_runpod/general)
 
 
-## Usage
-
-Provide instructions on how to use your application here.
-
-## Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
-
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
