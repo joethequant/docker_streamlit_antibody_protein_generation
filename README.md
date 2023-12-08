@@ -46,6 +46,14 @@ These instructions will get you a copy of the project up and running on your loc
     ```bash
     build_and_push.sh
     ```
+5. This app uses a serverless api pushed to runpod. You must set these env variables in a .env file.
+- runpod_id
+- runpod_secret
+
+6. The serverless api docker code is located here: 
+- Github: [https://github.com/joethequant/docker_protein_generator](https://github.com/joethequant/docker_protein_generator)
+- Public Image: [https://hub.docker.com/repository/docker/robertsj32/antibody_generation_runpod/general](https://hub.docker.com/repository/docker/robertsj32/antibody_generation_runpod/general)
+
 
 ## Usage
 
