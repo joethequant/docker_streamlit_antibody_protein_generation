@@ -1,11 +1,49 @@
 import subprocess
 import pandas as pd
+import numpy as np
 import os
 from itertools import combinations
 
 
 from tempfile import NamedTemporaryFile
 from .utils import seqs_to_fasta, fasta_to_csv
+
+
+def make_sure_heavy_and_light(sequence):
+    # Run ANARCI as a subprocess
+
+    result = subprocess.run(['ANARCI', '--sequence', sequence, '--scheme', 'aho'], capture_output=True, text=True)
+
+    sequence_results = result.stdout.split('\n')
+
+    species = None
+    e_value = None
+    score = None
+    heavy_chain = np.array([])
+    light_chain = np.array([])
+
+    try: #push this into try as we do not want to stop the program if ANARCI fails. If it fails, it will return an empty arrays and thus not be included in the anarci results and data files.
+        if len(sequence_results) > 4:
+
+            blank, species, chain_type, e_value, score, seqstart_index, seqend_index, blank_2 = sequence_results[5].split('|')
+
+            h_seq = []
+            l_seq = []
+            for row in sequence_results[7:]:
+                row = [x for x in row.split(' ') if x != '']
+                if (len(row) == 3) and (row[0] == 'H'):       
+                    h_seq.append(row[2])
+                elif (len(row) == 3) and (row[0] == 'L'):
+                    l_seq.append(row[2])
+
+            heavy_chain = np.array(h_seq)
+            light_chain = np.array(l_seq)
+
+    except:
+        pass
+    
+    return heavy_chain, light_chain
+
 
 def number_seqs_as_df(seqs, scheme="imgt"):
     """Number a collection of sequences or (description, sqeuence) pairs with ANARCI,
